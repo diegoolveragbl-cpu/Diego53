@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menú Digital QR</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --border: #2a2a2a;
+    --gold: #c9a84c;
+    --gold-light: #e8c876;
+    --text: #f0ece4;
+    --muted: #888;
+    --danger: #e05555;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ─── VIEWS ─── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ─── NAV ─── */
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    height: 56px;
+  }
+  .nav-brand {
+    font-family: 'Playfair Display', serif;
+    color: var(--gold);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab {
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { background: var(--gold); color: #000; font-weight: 600; }
+
+  /* ─── ADMIN VIEW ─── */
+  .admin-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    min-height: calc(100vh - 56px);
+  }
+
+  .admin-sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .sidebar-section h3 {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .form-field { margin-bottom: 12px; }
+  .form-field label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  .form-field input, .form-field textarea, .form-field select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  .form-field input:focus, .form-field textarea:focus {
+    border-color: var(--gold);
+  }
+  .form-field textarea { resize: vertical; min-height: 70px; }
+
+  .btn {
+    padding: 9px 18px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-gold { background: var(--gold); color: #000; }
+  .btn-gold:hover { background: var(--gold-light); }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-outline:hover { border-color: var(--gold); color: var(--gold); }
+  .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 12px; font-size: 12px; }
+  .btn-block { width: 100%; text-align: center; }
+
+  /* ─── CATEGORY LIST ─── */
+  .cat-list { display: flex; flex-direction: column; gap: 6px; }
+  .cat-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .cat-item:hover, .cat-item.selected { border-color: var(--gold); }
+  .cat-item.selected { background: rgba(201,168,76,0.06); }
+  .cat-name { font-size: 13px; font-weight: 500; }
+  .cat-count { font-size: 11px; color: var(--muted); }
+  .cat-actions { display: flex; gap: 6px; }
+
+  /* ─── PRODUCT PANEL ─── */
+  .admin-main {
+    padding: 28px 32px;
+  }
+  .main-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .main-header h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    color: var(--gold);
+  }
+
+  .product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .product-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .product-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .product-name { font-weight: 600; font-size: 14px; }
+  .product-price { color: var(--gold); font-weight: 700; font-size: 14px; }
+  .product-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .product-actions { display: flex; gap: 6px; margin-top: 4px; }
+
+  .add-product-card {
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    color: var(--muted);
+    transition: all 0.15s;
+    min-height: 130px;
+  }
+  .add-product-card:hover { border-color: var(--gold); color: var(--gold); }
+  .add-icon { font-size: 28px; }
+
+  .empty-cat {
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 48px;
+    color: var(--muted);
+  }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    display: none;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    width: 420px;
+    max-width: 95vw;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .modal h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--gold);
+  }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ─── QR VIEW ─── */
+  .qr-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    gap: 28px;
+    min-height: calc(100vh - 56px);
+  }
+  .qr-view h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    color: var(--gold);
+    text-align: center;
+  }
+  .qr-box {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 0 60px rgba(201,168,76,0.15);
+  }
+  .qr-instructions {
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    max-width: 360px;
+    line-height: 1.6;
+  }
+  .qr-url {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    word-break: break-all;
+    text-align: center;
+    max-width: 420px;
+  }
+  .qr-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+  /* ─── PUBLIC MENU VIEW ─── */
+  #menuView {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+  }
+  .menu-hero {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .menu-restaurant-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 36px;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  .menu-subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .menu-divider {
+    width: 60px;
+    height: 2px;
+    background: var(--gold);
+    margin: 16px auto;
+    opacity: 0.4;
+  }
+
+  .menu-category { margin-bottom: 36px; }
+  .menu-cat-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--gold-light);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+  }
+  .menu-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .menu-item:last-child { border-bottom: none; }
+  .menu-item-info { flex: 1; }
+  .menu-item-name { font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+  .menu-item-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .menu-item-price {
+    color: var(--gold);
+    font-weight: 700;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .menu-empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 60px 20px;
+    font-size: 14px;
+  }
+
+  /* ─── RESTAURANT INFO FORM ─── */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .info-grid .span2 { grid-column: span 2; }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--gold);
+    color: var(--text);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    z-index: 999;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.25s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  @media (max-width: 700px) {
+    .admin-layout { grid-template-columns: 1fr; }
+    .admin-sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-brand">🍽 MenuQR</span>
+  <div class="nav-tabs" id="adminNav">
+    <button class="nav-tab active" onclick="showTab('adminView')">Editor</button>
+    <button class="nav-tab" onclick="showTab('qrView')">Código QR</button>
+    <button class="nav-tab" onclick="showTab('menuView')">Ver Menú</button>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════
+     ADMIN VIEW
+══════════════════════════════════════ -->
+<div id="adminView" class="view active">
+  <div class="admin-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="admin-sidebar">
+
+      <!-- Restaurant Info -->
+      <div class="sidebar-section">
+        <h3>Info del Restaurante</h3>
+        <div class="form-field">
+          <label>Nombre del Restaurante</label>
+          <input id="restName" type="text" placeholder="Ej: Tempo Hand Roll" oninput="saveData()">
+        </div>
+        <div class="form-field">
+          <label>Slogan (opcional)</label>
+          <input id="restSlogan" type="text" placeholder="Ej: Cocina de mar y tierra" oninput="saveData()">
+        </div>
+      </div>
+
+      <!-- Categories -->
+      <div class="sidebar-section" style="flex:1">
+        <h3>Categorías</h3>
+        <div class="cat-list" id="catList"></div>
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <input id="newCatName" type="text" placeholder="Nueva categoría..." style="flex:1; background:#0d0d0d; border:1px solid #2a2a2a; color:#f0ece4; border-radius:8px; padding:8px 12px; font-size:13px; font-family:Inter,sans-serif; outline:none;"
+            onkeydown="if(event.key==='Enter') addCategory()">
+          <button class="btn btn-gold btn-sm" onclick="addCategory()">+</button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="admin-main">
+      <div class="main-header">
+        <h2 id="mainTitle">Selecciona una categoría</h2>
+        <button class="btn btn-gold" id="addProductBtn" onclick="openProductModal()" style="display:none">+ Agregar producto</button>
+      </div>
+      <div class="product-grid" id="productGrid">
+        <div class="empty-cat">
+          <p>👈 Crea o selecciona una categoría para empezar</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     QR VIEW
+══════════════════════════════════════ -->
+<div id="qrView" class="view">
+  <div class="qr-view">
+    <h2>Código QR de tu Menú</h2>
+    <div class="qr-box" id="qrContainer"></div>
+    <p class="qr-instructions">
+      Tus clientes escanean este código con la cámara de su celular y acceden al menú directamente — sin apps, sin descargas.
+    </p>
+    <div class="qr-url" id="qrUrl"></div>
+    <div class="qr-actions">
+      <button class="btn btn-gold" onclick="downloadQR()">⬇ Descargar QR</button>
+      <button class="btn btn-outline" onclick="copyUrl()">📋 Copiar enlace</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MENU VIEW (cliente)
+══════════════════════════════════════ -->
+<div id="menuView" class="view">
+  <div class="menu-hero">
+    <div class="menu-restaurant-name" id="pubRestName">Nuestro Menú</div>
+    <div class="menu-divider"></div>
+    <div class="menu-subtitle" id="pubRestSlogan"></div>
+  </div>
+  <div id="pubMenuContent"></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MODALS
+══════════════════════════════════════ -->
+
+<!-- Product Modal -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal">
+    <h3 id="productModalTitle">Agregar Producto</h3>
+    <div class="form-field">
+      <label>Nombre del producto</label>
+      <input id="pName" type="text" placeholder="Ej: Taco de Atún">
+    </div>
+    <div class="form-field">
+      <label>Descripción (opcional)</label>
+      <textarea id="pDesc" placeholder="Ej: Atún sellado con salsa de soya y aguacate"></textarea>
+    </div>
+    <div class="form-field">
+      <label>Precio</label>
+      <input id="pPrice" type="text" placeholder="Ej: $180">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeProductModal()">Cancelar</button>
+      <button class="btn btn-gold" onclick="saveProduct()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rename Cat Modal -->
+<div class="modal-overlay" id="renameCatModal">
+  <div class="modal">
+    <h3>Renombrar Categoría</h3>
+    <div class="form-field">
+      <label>Nuevo nombre</label>
+      <input id="renameCatInput" type="text" onkeydown="if(event.key==='Enter') confirmRenameCat()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('renameCatModal')">Cancelar</button>
+      <button class="btn btn-gold" onclick="confirmRenameCat()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════
+let state = {
+  restaurant: { name: '', slogan: '' },
+  categories: [],   // [{id, name}]
+  products: {}      // { catId: [{id, name, desc, price}] }
+};
+
+let selectedCat = null;
+let editingProduct = null;
+let renamingCatId = null;
+
+// ══════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════
+window.addEventListener('load', () => {
+  // Check if ?menu=1 param to show public menu
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('menu') === '1') {
+    document.getElementById('adminNav').style.display = 'none';
+    loadState();
+    renderPublicMenu();
+    showTab('menuView');
+    return;
+  }
+  loadState();
+  document.getElementById('restName').value = state.restaurant.name || '';
+  document.getElementById('restSlogan').value = state.restaurant.slogan || '';
+  renderCats();
+  generateQR();
+});
+
+// ══════════════════════════════════════
+//  STORAGE
+// ══════════════════════════════════════
+function saveData() {
+  state.restaurant.name = document.getElementById('restName').value;
+  state.restaurant.slogan = document.getElementById('restSlogan').value;
+  localStorage.setItem('menuqr_state', JSON.stringify(state));
+}
+
+function loadState() {
+  const saved = localStorage.getItem('menuqr_state');
+  if (saved) {
+    try { state = JSON.parse(saved); }
+    catch(e) {}
+  }
+  if (!state.products) state.products = {};
+  if (!state.categories) state.categories = [];
+  if (!state.restaurant) state.restaurant = { name: '', slogan: '' };
+}
+
+function fullSave() {
+  saveData();
+  renderCats();
+  renderProducts();
+  if (selectedCat) generateQR();
+}
+
+// ══════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════
+function showTab(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach((t, i) => {
+    const tabs = ['adminView','qrView','menuView'];
+    t.classList.toggle('active', tabs[i] === id);
+  });
+  if (id === 'qrView') generateQR();
+  if (id === 'menuView') renderPublicMenu();
+}
+
+// ══════════════════════════════════════
+//  CATEGORIES
+// ══════════════════════════════════════
+function addCategory() {
+  const input = document.getElementById('newCatName');
+  const name = input.value.trim();
+  if (!name) return;
+  const id = 'cat_' + Date.now();
+  state.categories.push({ id, name });
+  state.products[id] = [];
+  input.value = '';
+  fullSave();
+  selectCat(id);
+  toast('Categoría creada ✓');
+}
+
+function selectCat(id) {
+  selectedCat = id;
+  renderCats();
+  renderProducts();
+  document.getElementById('addProductBtn').style.display = 'block';
+}
+
+function deleteCategory(id) {
+  if (!confirm('¿Eliminar esta categoría y todos sus productos?')) return;
+  state.categories = state.categories.filter(c => c.id !== id);
+  delete state.products[id];
+  if (selectedCat === id) {
+    selectedCat = null;
+    document.getElementById('addProductBtn').style.display = 'none';
+    document.getElementById('mainTitle').textContent = 'Selecciona una categoría';
+    document.getElementById('productGrid').innerHTML = '<div class="empty-cat"><p>👈 Selecciona una categoría</p></div>';
+  }
+  fullSave();
+}
+
+function openRenameCat(id) {
+  renamingCatId = id;
+  const cat = state.categories.find(c => c.id === id);
+  document.getElementById('renameCatInput').value = cat ? cat.name : '';
+  document.getElementById('renameCatModal').classList.add('open');
+  setTimeout(() => document.getElementById('renameCatInput').focus(), 50);
+}
+
+function confirmRenameCat() {
+  const name = document.getElementById('renameCatInput').value.trim();
+  if (!name) return;
+  const cat = state.categories.find(c => c.id === renamingCatId);
+  if (cat) cat.name = name;
+  closeModal('renameCatModal');
+  fullSave();
+  toast('Categoría renombrada ✓');
+}
+
+function renderCats() {
+  const list = document.getElementById('catList');
+  list.innerHTML = '';
+  state.categories.forEach(cat => {
+    const count = (state.products[cat.id] || []).length;
+    const el = document.createElement('div');
+    el.className = 'cat-item' + (selectedCat === cat.id ? ' selected' : '');
+    el.innerHTML = `
+      <div onclick="selectCat('${cat.id}')" style="flex:1; cursor:pointer;">
+        <span class="cat-name">${esc(cat.name)}</span>
+        <br><span class="cat-count">${count} producto${count !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="cat-actions">
+        <button class="btn btn-outline btn-sm" title="Renombrar" onclick="openRenameCat('${cat.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" title="Eliminar" onclick="deleteCategory('${cat.id}')">🗑</button>
+      </div>`;
+    list.appendChild(el);
+  });
+}
+
+// ══════════════════════════════════════
+//  PRODUCTS
+// ══════════════════════════════════════
+function renderProducts() {
+  const grid = document.getElementById('productGrid');
+  const title = document.getElementById('mainTitle');
+  if (!selectedCat) return;
+
+  const cat = state.categories.find(c => c.id === selectedCat);
+  title.textContent = cat ? cat.name : '';
+
+  const products = state.products[selectedCat] || [];
+  grid.innerHTML = '';
+
+  if (products.length === 0) {
+    grid.innerHTML = '<div class="empty-cat"><p>No hay productos aún.<br>Agrega el primero 👆</p></div>';
+    return;
+  }
+
+  products.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    card.innerHTML = `
+      <div class="product-card-top">
+        <span class="product-name">${esc(p.name)}</span>
+        <span class="product-price">${esc(p.price)}</span>
+      </div>
+      ${p.desc ? `<p class="product-desc">${esc(p.desc)}</p>` : ''}
+      <div class="product-actions">
+        <button class="btn btn-outline btn-sm" onclick="openEditProduct('${p.id}')">✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">🗑</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function openProductModal(productId = null) {
+  editingProduct = productId;
+  document.getElementById('productModalTitle').textContent = productId ? 'Editar Producto' : 'Agregar Producto';
+  if (productId) {
+    const products = state.products[selectedCat] || [];
+    const p = products.find(x => x.id === productId);
+    if (p) {
+      document.getElementById('pName').value = p.name;
+      document.getElementById('pDesc').value = p.desc || '';
+      document.getElementById('pPrice').value = p.price;
+    }
+  } else {
+    document.getElementById('pName').value = '';
+    document.getElementById('pDesc').value = '';
+    document.getElementById('pPrice').value = '';
+  }
+  document.getElementById('productModal').classList.add('open');
+  setTimeout(() => document.getElementById('pName').focus(), 50);
+}
+
+function openEditProduct(id) { openProductModal(id); }
+
+function closeProductModal() {
+  closeModal('productModal');
+  editingProduct = null;
+}
+
+function saveProduct() {
+  const name = document.getElementById('pName').value.trim();
+  const desc = document.getElementById('pDesc').value.trim();
+  const price = document.getElementById('pPrice').value.trim();
+  if (!name || !price) { toast('Nombre y precio son requeridos'); return; }
+
+  if (!state.products[selectedCat]) state.products[selectedCat] = [];
+  const products = state.products[selectedCat];
+
+  if (editingProduct) {
+    const p = products.find(x => x.id === editingProduct);
+    if (p) { p.name = name; p.desc = desc; p.price = price; }
+  } else {
+    products.push({ id: 'p_' + Date.now(), name, desc, price });
+  }
+
+  closeProductModal();
+  fullSave();
+  toast(editingProduct ? 'Producto actualizado ✓' : 'Producto agregado ✓');
+}
+
+function deleteProduct(id) {
+  if (!confirm('¿Eliminar este producto?')) return;
+  state.products[selectedCat] = (state.products[selectedCat] || []).filter(p => p.id !== id);
+  fullSave();
+  toast('Producto eliminado');
+}
+
+// ══════════════════════════════════════
+//  PUBLIC MENU
+// ══════════════════════════════════════
+function renderPublicMenu() {
+  const name = state.restaurant.name || 'Nuestro Menú';
+  const slogan = state.restaurant.slogan || '';
+  document.getElementById('pubRestName').textContent = name;
+  document.getElementById('pubRestSlogan').textContent = slogan;
+
+  const content = document.getElementById('pubMenuContent');
+  content.innerHTML = '';
+
+  if (state.categories.length === 0) {
+    content.innerHTML = '<div class="menu-empty">El menú está vacío por el momento.</div>';
+    return;
+  }
+
+  state.categories.forEach(cat => {
+    const products = state.products[cat.id] || [];
+    if (products.length === 0) return;
+
+    const section = document.createElement('div');
+    section.className = 'menu-category';
+    section.innerHTML = `<div class="menu-cat-title">${esc(cat.name)}</div>`;
+
+    products.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'menu-item';
+      item.innerHTML = `
+        <div class="menu-item-info">
+          <div class="menu-item-name">${esc(p.name)}</div>
+          ${p.desc ? `<div class="menu-item-desc">${esc(p.desc)}</div>` : ''}
+        </div>
+        <div class="menu-item-price">${esc(p.price)}</div>`;
+      section.appendChild(item);
+    });
+
+    content.appendChild(section);
+  });
+}
+
+// ══════════════════════════════════════
+//  QR
+// ══════════════════════════════════════
+let qrInstance = null;
+
+function getMenuUrl() {
+  const base = window.location.href.split('?')[0].split('#')[0];
+  return base + '?menu=1';
+}
+
+function generateQR() {
+  const container = document.getElementById('qrContainer');
+  container.innerHTML = '';
+  const url = getMenuUrl();
+  document.getElementById('qrUrl').textContent = url;
+
+  qrInstance = new QRCode(container, {
+    text: url,
+    width: 240,
+    height: 240,
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+}
+
+function downloadQR() {
+  const canvas = document.querySelector('#qrContainer canvas');
+  if (!canvas) return;
+  const link = document.createElement('a');
+  link.download = 'menu-qr.png';
+  link.href = canvas.toDataURL();
+  link.click();
+}
+
+function copyUrl() {
+  const url = getMenuUrl();
+  navigator.clipboard.writeText(url).then(() => toast('Enlace copiado ✓'));
+}
+
+// ══════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+</script>
+</body>
+</html>
